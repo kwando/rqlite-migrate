@@ -20,3 +20,20 @@ jobs:
         run: go test ./...
       - name: Vet
         run: go vet ./...
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Install rqlite v10.6.0
+        run: |
+          mkdir -p "$RUNNER_TEMP/rqlite"
+          curl -fsSL https://github.com/rqlite/rqlite/releases/download/v10.6.0/rqlite-v10.6.0-linux-amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/rqlite" --strip-components=1 rqlite-v10.6.0-linux-amd64/rqlited
+          echo "$RUNNER_TEMP/rqlite" >> "$GITHUB_PATH"
+      - name: Integration tests
+        run: go test -tags integration -count=1 ./...

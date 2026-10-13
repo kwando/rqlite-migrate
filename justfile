@@ -14,6 +14,10 @@ fmt:
 test:
     go test ./...
 
+# Run isolated tests against a real rqlited binary on PATH.
+integration:
+    go test -tags integration -count=1 ./...
+
 # Run static checks.
 vet:
     go vet ./...

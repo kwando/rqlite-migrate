@@ -13,6 +13,8 @@ export RQLITE_URL=http://localhost:4001
 
 With [just](https://just.systems/), run `just` to list recipes, `just check` to test and vet, or `just new create_users`, `just status`, `just up`, and `just down`. Set `RQLITE_URL` before using database recipes.
 
+To run integration tests, install `rqlited` on your `PATH` and run `just integration` (or `go test -tags integration -count=1 ./...`). Each test starts its own temporary single-node rqlite instance; the tests never use `RQLITE_URL`. CI downloads rqlite v10.6.0 and runs this suite separately from the unit tests.
+
 The `--url` and `--dir` flags go before the command. The default directory is `db/migrations`. Files are named `YYYYMMDDHHMMSS_name.sql` (UTC), and use this format:
 
 ```sql
