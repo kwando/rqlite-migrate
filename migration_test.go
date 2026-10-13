@@ -1,12 +1,65 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestVersionFlag(t *testing.T) {
+	t.Setenv("RQLITE_URL", "")
+	for _, tc := range []struct {
+		version string
+	}{
+		{"dev"},
+		{"v0.0.2"},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			previousVersion, previousOutput := version, os.Stdout
+			version = tc.version
+			reader, writer, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			os.Stdout = writer
+			defer func() {
+				version, os.Stdout = previousVersion, previousOutput
+				reader.Close()
+				writer.Close()
+			}()
+			if err := run([]string{"--version"}); err != nil {
+				t.Fatal(err)
+			}
+			writer.Close()
+			got, err := io.ReadAll(reader)
+			if err != nil || !strings.HasPrefix(string(got), "rqlite-migrate "+tc.version) || !strings.HasSuffix(string(got), "\n") {
+				t.Fatalf("--version output = %q, err = %v", got, err)
+			}
+		})
+	}
+}
+
+func TestVersionText(t *testing.T) {
+	const revision = "0123456789abcdef0123456789abcdef01234567"
+	for _, tc := range []struct {
+		version  string
+		settings []debug.BuildSetting
+		want     string
+	}{
+		{"dev", nil, "rqlite-migrate dev"},
+		{"v0.0.2", []debug.BuildSetting{{Key: "vcs.revision", Value: revision}}, "rqlite-migrate v0.0.2 (0123456)"},
+		{"dev", []debug.BuildSetting{{Key: "vcs.modified", Value: "true"}, {Key: "vcs.revision", Value: revision}}, "rqlite-migrate dev (0123456-dirty)"},
+		{"dev", []debug.BuildSetting{{Key: "vcs.revision", Value: "short"}}, "rqlite-migrate dev"},
+	} {
+		if got := versionText(tc.version, tc.settings); got != tc.want {
+			t.Errorf("versionText(%q, %v) = %q, want %q", tc.version, tc.settings, got, tc.want)
+		}
+	}
+}
 
 func TestNewAndLoad(t *testing.T) {
 	dir := t.TempDir()

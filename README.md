@@ -9,6 +9,7 @@ export RQLITE_URL=http://localhost:4001
 ./rqlite-migrate up
 ./rqlite-migrate status
 ./rqlite-migrate down
+./rqlite-migrate --version
 ```
 
 With [just](https://just.systems/), run `just` to list recipes, `just check` to test and vet, or `just new create_users`, `just status`, `just up`, and `just down`. Set `RQLITE_URL` before using database recipes.
@@ -25,6 +26,8 @@ git push origin v0.1.0
 ```
 
 The workflow runs the real-rqlite integration tests before publishing a GitHub Release with standalone `rqlite-migrate` archives for macOS Apple Silicon (`darwin/arm64`), Linux x86-64 (`linux/amd64`), and Raspberry Pi with a 64-bit OS (`linux/arm64`). It also uploads `SHA256SUMS` for verifying downloads; run `sha256sum -c SHA256SUMS` on Linux or `shasum -a 256 -c SHA256SUMS` on macOS in a directory containing all three archives. There is no macOS Intel or 32-bit Raspberry Pi build.
+
+`rqlite-migrate --version` prints the release tag and short Git commit in published binaries (for example, `rqlite-migrate v0.0.2 (abc1234)`). Local builds print `dev` with the short commit when available, plus `-dirty` if the working tree has uncommitted changes.
 
 The `--url` and `--dir` flags go before the command. The default directory is `db/migrations`, relative to the directory where you run the CLI (not the binary's location). Use `--dir /absolute/path/to/db/migrations` when running from elsewhere. `new` creates the directory; `status` reports when it is missing, while `up` and `down` require it. Files are named `YYYYMMDDHHMMSS_name.sql` (UTC), and use this format:
 

@@ -7,9 +7,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 )
+
+// version is set from the release tag with -ldflags at build time.
+var version = "dev"
+
+func versionText(v string, settings []debug.BuildSetting) string {
+	text := "rqlite-migrate " + v
+	var revision string
+	modified := false
+	for _, setting := range settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.modified":
+			modified = setting.Value == "true"
+		}
+	}
+	if len(revision) >= 7 {
+		text += " (" + revision[:7]
+		if v == "dev" && modified {
+			text += "-dirty"
+		}
+		text += ")"
+	}
+	return text
+}
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -22,12 +48,22 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("rqlite-migrate", flag.ContinueOnError)
 	url := flags.String("url", os.Getenv("RQLITE_URL"), "rqlite HTTP URL (or RQLITE_URL)")
 	dir := flags.String("dir", "db/migrations", "migration directory")
+	showVersion := flags.Bool("version", false, "print version and exit")
 	flags.Usage = func() {
-		fmt.Fprintln(flags.Output(), "Usage: rqlite-migrate [--url URL] [--dir PATH] {new NAME|status|up|down}")
+		fmt.Fprintln(flags.Output(), "Usage: rqlite-migrate [--version] [--url URL] [--dir PATH] {new NAME|status|up|down}")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *showVersion {
+		info, ok := debug.ReadBuildInfo()
+		if ok {
+			fmt.Println(versionText(version, info.Settings))
+		} else {
+			fmt.Println(versionText(version, nil))
+		}
+		return nil
 	}
 	pos := flags.Args()
 	if len(pos) == 0 {
