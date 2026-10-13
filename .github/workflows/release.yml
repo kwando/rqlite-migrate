@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Install rqlite v10.6.0
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rqlite"
+          curl -fsSL https://github.com/rqlite/rqlite/releases/download/v10.6.0/rqlite-v10.6.0-linux-amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/rqlite" --strip-components=1 rqlite-v10.6.0-linux-amd64/rqlited
+          echo "$RUNNER_TEMP/rqlite" >> "$GITHUB_PATH"
+      - name: Test and vet
+        run: |
+          go test -tags integration -count=1 ./...
+          go vet ./...
+      - name: Build archives and checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for target in darwin/arm64 linux/amd64 linux/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            stage="$RUNNER_TEMP/release/$os-$arch"
+            mkdir -p "$stage"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "$stage/rqlite-migrate" .
+            tar -czf "dist/rqlite-migrate_${RELEASE_TAG}_${os}_${arch}.tar.gz" -C "$stage" rqlite-migrate
+          done
+          (cd dist && sha256sum ./*.tar.gz > SHA256SUMS && sha256sum -c SHA256SUMS)
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/* --verify-tag --generate-notes --title "$RELEASE_TAG"

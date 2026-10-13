@@ -15,6 +15,17 @@ With [just](https://just.systems/), run `just` to list recipes, `just check` to 
 
 To run integration tests, install `rqlited` on your `PATH` and run `just integration` (or `go test -tags integration -count=1 ./...`). Each test starts its own temporary single-node rqlite instance; the tests never use `RQLITE_URL`. CI downloads rqlite v10.6.0 and runs this suite separately from the unit tests.
 
+## Releases
+
+Push a version tag to run the release workflow (after merging the workflow to the default branch):
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow runs the real-rqlite integration tests before publishing a GitHub Release with standalone `rqlite-migrate` archives for macOS Apple Silicon (`darwin/arm64`), Linux x86-64 (`linux/amd64`), and Raspberry Pi with a 64-bit OS (`linux/arm64`). It also uploads `SHA256SUMS` for verifying downloads; run `sha256sum -c SHA256SUMS` on Linux or `shasum -a 256 -c SHA256SUMS` on macOS in a directory containing all three archives. There is no macOS Intel or 32-bit Raspberry Pi build.
+
 The `--url` and `--dir` flags go before the command. The default directory is `db/migrations`. Files are named `YYYYMMDDHHMMSS_name.sql` (UTC), and use this format:
 
 ```sql
