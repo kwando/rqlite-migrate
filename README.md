@@ -2,6 +2,8 @@
 
 A small, dbmate-style migration CLI for rqlite. Requires Go 1.22 or newer to build.
 
+![Demo of applying and rolling back a migration](docs/demo.gif)
+
 ## Usage
 
 ```sh
@@ -43,6 +45,8 @@ Each migration is sent as one `/db/execute?transaction` request, with its `schem
 ## Development
 
 Run unit tests with `go test ./...`. To run integration tests, install `rqlited` on your `PATH` and run `go test -tags integration -count=1 ./...`. Each test starts its own temporary single-node rqlite instance; the tests never use `RQLITE_URL`. CI downloads rqlite v10.6.0 and runs this suite separately from the unit tests.
+
+To regenerate the demo GIF, install [VHS](https://github.com/charmbracelet/vhs) and its `ttyd` and `ffmpeg` dependencies, then run `vhs docs/demo.tape` from the repository root. The tape starts a disposable rqlite node on ports 45981 and 45982; it never uses your `RQLITE_URL`.
 
 ## Releases
 

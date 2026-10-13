@@ -18,6 +18,10 @@ test:
 integration:
     go test -tags integration -count=1 ./...
 
+# Re-render docs/demo.gif (requires VHS, ttyd, ffmpeg, rqlited, and curl).
+demo:
+    vhs docs/demo.tape
+
 # Run static checks.
 vet:
     go vet ./...
