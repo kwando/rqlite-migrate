@@ -59,3 +59,16 @@ func TestInvalidMigration(t *testing.T) {
 		}
 	}
 }
+
+func TestMissingMigrationDirectoryForUpAndDown(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "missing", "migrations")
+	for _, command := range []string{"up", "down"} {
+		err := run([]string{"--url", "http://127.0.0.1:1", "--dir", dir, command})
+		if err == nil || !strings.Contains(err.Error(), "migration directory not found: "+dir+"\n  looked in: "+dir+"\n") || !strings.Contains(err.Error(), "rqlite-migrate --dir PATH "+command) || !strings.Contains(err.Error(), "rqlite-migrate new NAME") {
+			t.Errorf("%s: expected actionable path error, got %v", command, err)
+		}
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("migration directory was created: %v", err)
+	}
+}

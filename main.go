@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -50,8 +51,22 @@ func run(args []string) error {
 		return errors.New("set --url or RQLITE_URL")
 	}
 	migrations, err := loadMigrations(*dir)
+	missingDir := false
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
+		if _, statErr := os.Stat(*dir); !os.IsNotExist(statErr) {
+			return err // A migration file, not the directory, may have disappeared.
+		}
+		if pos[0] != "status" {
+			resolved, pathErr := filepath.Abs(*dir)
+			if pathErr != nil {
+				return pathErr
+			}
+			return fmt.Errorf("migration directory not found: %s\n  looked in: %s\n  try: rqlite-migrate new NAME\n       rqlite-migrate --dir PATH %s", *dir, resolved, pos[0])
+		}
+		missingDir = true
 	}
 	client, err := newClient(*url)
 	if err != nil {
@@ -73,11 +88,19 @@ func run(args []string) error {
 	}
 	for version := range applied {
 		if !known[version] {
-			return fmt.Errorf("applied version %s has no local migration file", version)
+			return fmt.Errorf("applied version %s has no local migration file in %q; check --dir PATH", version, *dir)
 		}
 	}
 	switch pos[0] {
 	case "status":
+		if len(migrations) == 0 {
+			if missingDir {
+				fmt.Printf("Migration directory not found: %s\n", *dir)
+			} else {
+				fmt.Printf("No migration files in %s.\n", *dir)
+			}
+			fmt.Println("No migrations applied in rqlite.")
+		}
 		for _, m := range migrations {
 			state := "pending"
 			if applied[m.version] {

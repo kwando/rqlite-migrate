@@ -26,7 +26,7 @@ git push origin v0.1.0
 
 The workflow runs the real-rqlite integration tests before publishing a GitHub Release with standalone `rqlite-migrate` archives for macOS Apple Silicon (`darwin/arm64`), Linux x86-64 (`linux/amd64`), and Raspberry Pi with a 64-bit OS (`linux/arm64`). It also uploads `SHA256SUMS` for verifying downloads; run `sha256sum -c SHA256SUMS` on Linux or `shasum -a 256 -c SHA256SUMS` on macOS in a directory containing all three archives. There is no macOS Intel or 32-bit Raspberry Pi build.
 
-The `--url` and `--dir` flags go before the command. The default directory is `db/migrations`. Files are named `YYYYMMDDHHMMSS_name.sql` (UTC), and use this format:
+The `--url` and `--dir` flags go before the command. The default directory is `db/migrations`, relative to the directory where you run the CLI (not the binary's location). Use `--dir /absolute/path/to/db/migrations` when running from elsewhere. `new` creates the directory; `status` reports when it is missing, while `up` and `down` require it. Files are named `YYYYMMDDHHMMSS_name.sql` (UTC), and use this format:
 
 ```sql
 -- migrate:up

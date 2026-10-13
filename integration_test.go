@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -90,6 +91,28 @@ func writeMigration(t *testing.T, dir, version, name, up, down string) string {
 func migrationCommand(t *testing.T, c *client, dir, command string) error {
 	t.Helper()
 	return run([]string{"--url", c.url, "--dir", dir, command})
+}
+
+func migrationStatusOutput(t *testing.T, c *client, dir string) (string, error) {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := os.Stdout
+	os.Stdout = writer
+	defer func() {
+		os.Stdout = previous
+		reader.Close()
+		writer.Close()
+	}()
+	err = migrationCommand(t, c, dir, "status")
+	writer.Close()
+	output, readErr := io.ReadAll(reader)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	return string(output), err
 }
 
 func rows(t *testing.T, c *client, sql string) [][]any {
@@ -212,6 +235,35 @@ func TestIntegrationFailedDownKeepsSchemaAndHistory(t *testing.T) {
 }
 
 func TestIntegrationHistoryAndFileValidation(t *testing.T) {
+	t.Run("missing directory and empty database", func(t *testing.T) {
+		c, dir := startRqlite(t)
+		output, err := migrationStatusOutput(t, c, dir)
+		if err != nil {
+			t.Fatalf("status with no migration directory: %v", err)
+		}
+		if want := "Migration directory not found: " + dir + "\nNo migrations applied in rqlite.\n"; output != want {
+			t.Fatalf("missing directory status = %q, want %q", output, want)
+		}
+		if got := rows(t, c, "SELECT name FROM sqlite_master WHERE name='schema_migrations'"); len(got) != 0 {
+			t.Fatalf("status created history table: %v", got)
+		}
+		if _, err := os.Stat(dir); !os.IsNotExist(err) {
+			t.Fatalf("status created migration directory: %v", err)
+		}
+		if err := os.Mkdir(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		output, err = migrationStatusOutput(t, c, dir)
+		if err != nil {
+			t.Fatalf("status with empty migration directory: %v", err)
+		}
+		if want := "No migration files in " + dir + ".\nNo migrations applied in rqlite.\n"; output != want {
+			t.Fatalf("empty directory status = %q, want %q", output, want)
+		}
+		if got := rows(t, c, "SELECT name FROM sqlite_master WHERE name='schema_migrations'"); len(got) != 0 {
+			t.Fatalf("status created history table: %v", got)
+		}
+	})
 	t.Run("missing down", func(t *testing.T) {
 		c, dir := startRqlite(t)
 		const version = "20260101000000"
@@ -236,6 +288,17 @@ func TestIntegrationHistoryAndFileValidation(t *testing.T) {
 		for _, command := range []string{"status", "up", "down"} {
 			if err := migrationCommand(t, c, dir, command); err == nil || !strings.Contains(err.Error(), "no local migration file") {
 				t.Errorf("%s: expected orphan error, got %v", command, err)
+			}
+		}
+		if err := os.Remove(dir); err != nil {
+			t.Fatal(err)
+		}
+		if err := migrationCommand(t, c, dir, "status"); err == nil || !strings.Contains(err.Error(), "no local migration file") {
+			t.Errorf("status: expected orphan error, got %v", err)
+		}
+		for _, command := range []string{"up", "down"} {
+			if err := migrationCommand(t, c, dir, command); err == nil || !strings.Contains(err.Error(), "migration directory not found") {
+				t.Errorf("%s: expected missing directory error, got %v", command, err)
 			}
 		}
 		assertVersions(t, c, "20260101000000")
