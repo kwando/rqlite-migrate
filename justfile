@@ -27,7 +27,7 @@ check: test vet
 
 # Create a new migration (e.g. just new create_users).
 new name:
-    go run . new {{quote(name)}}
+    go run . new {{ quote(name) }}
 
 # Show migration status (requires RQLITE_URL).
 status:
@@ -40,3 +40,6 @@ up:
 # Roll back the last migration (requires RQLITE_URL).
 down:
     go run . down
+
+install: build
+    cp rqlite-migrate ~/.local/bin/
